@@ -251,6 +251,14 @@ class ManagerAPI {
     await _prefs.setBool('RipLibsEnabled', value);
   }
 
+  bool isPreReleasesEnabled() {
+    return _prefs.getBool('preReleasesEnabled') ?? false;
+  }
+
+  Future<void> enablePreReleasesStatus(bool value) async {
+    await _prefs.setBool('preReleasesEnabled', value);
+  }
+
   bool isVersionCompatibilityCheckEnabled() {
     return _prefs.getBool('versionCompatibilityCheckEnabled') ?? true;
   }
@@ -445,6 +453,16 @@ class ManagerAPI {
     }
   }
 
+  Future<String?> getLatestPatchesPreReleaseTime() async {
+    final release = await _githubAPI.getLatestPatchesRelease(getPatchesRepo());
+    if (release != null) {
+      final DateTime timestamp = DateTime.parse(release['created_at'] as String);
+      return format(timestamp, locale: 'en_short');
+    } else {
+      return null;
+    }
+  }
+
   Future<String?> getLatestManagerVersion() async {
     final release = await _githubAPI.getLatestRelease(defaultManagerRepo);
     if (release != null) {
@@ -455,7 +473,26 @@ class ManagerAPI {
   }
 
   Future<String?> getLatestIntegrationsVersion() async {
-    final release = await _githubAPI.getLatestRelease(getIntegrationsRepo());
+    final release;
+    if (isPreReleasesEnabled()) {
+      release = await _githubAPI.getLatestPreRelease(getIntegrationsRepo());
+    } else {
+      release = await _githubAPI.getLatestRelease(getIntegrationsRepo());
+    }
+    if (release != null) {
+      return release['tag_name'];
+    } else {
+      return null;
+    }
+  }
+
+  Future<String?> getLatestPrePatchesVersion() async {
+    final release;
+    if (isPreReleasesEnabled()) {
+      release = await _githubAPI.getLatestPreRelease(getPatchesRepo());
+    } else {
+      release = await _githubAPI.getLatestRelease(getPatchesRepo());
+    }
     if (release != null) {
       return release['tag_name'];
     } else {
@@ -464,7 +501,12 @@ class ManagerAPI {
   }
 
   Future<String?> getLatestPatchesVersion() async {
-    final release = await _githubAPI.getLatestRelease(getPatchesRepo());
+    final release;
+    if (isPreReleasesEnabled()) {
+      release = await _githubAPI.getLatestPreRelease(getPatchesRepo());
+    } else {
+      release = await _githubAPI.getLatestRelease(getPatchesRepo());
+    }
     if (release != null) {
       return release['tag_name'];
     } else {

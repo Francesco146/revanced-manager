@@ -25,11 +25,50 @@ class GithubAPI {
     String repoName,
   ) async {
     try {
+      //log('trying to get latest release ($repoName)');
       final response = await _dio.get(
-        '/repos/$repoName/releases',
+        '/repos/$repoName/releases/latest',
       );
-      return response.data[0];
+      return response.data;
     } on Exception catch (e) {
+      if (kDebugMode) {
+        print(e);
+      }
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> getLatestPreRelease(String repoName) async {
+    try {
+      //log('Trying to get the latest PRE-release ($repoName)');
+      final Response response = await _dio.get('/repos/$repoName/releases');
+      final List<dynamic> releases = response.data;
+
+      if (releases.isEmpty) {
+        //log('No releases found ($repoName), no absolute releases...');
+        throw Exception('No releases found ($repoName)');
+      }
+
+      Map<String, dynamic>? latestPreRelease;
+      DateTime latestPreReleaseDate = DateTime.fromMillisecondsSinceEpoch(0);
+
+      for (final release in releases) {
+        if (release['prerelease'] == true) {
+          final DateTime releaseDate = DateTime.parse(release['published_at']);
+          if (releaseDate.isAfter(latestPreReleaseDate)) {
+            latestPreReleaseDate = releaseDate;
+            latestPreRelease = release;
+          }
+        }
+      }
+
+      if (latestPreRelease == null) {
+        //log('No PRE-release found ($repoName)');
+        throw Exception('No PRE-release found ($repoName)');
+      }
+
+      return latestPreRelease;
+    } catch (e) {
       if (kDebugMode) {
         print(e);
       }
@@ -110,7 +149,13 @@ class GithubAPI {
     String repoName,
   ) async {
     try {
-      final Map<String, dynamic>? release = await getLatestRelease(repoName);
+      //log('isPreReleasesEnabled? ${_managerAPI.isPreReleasesEnabled()}');
+      final Map<String, dynamic>? release;
+      if (_managerAPI.isPreReleasesEnabled()) {
+        release = await getLatestPreRelease(repoName);
+      } else {
+        release = await getLatestRelease(repoName);
+      }
       if (release != null) {
         final Map<String, dynamic>? asset =
             (release['assets'] as List<dynamic>).firstWhereOrNull(

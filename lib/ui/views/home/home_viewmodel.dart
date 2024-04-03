@@ -243,8 +243,13 @@ class HomeViewModel extends BaseViewModel {
 
   Future<void> updatePatches(BuildContext context) async {
     _toast.showBottom('homeView.downloadingMessage');
-    final String patchesVersion =
-        await _managerAPI.getLatestPatchesVersion() ?? '0.0.0';
+    final String patchesVersion;
+    if (_managerAPI.isPreReleasesEnabled()) {
+      patchesVersion =
+          await _managerAPI.getLatestPrePatchesVersion() ?? '0.0.0';
+    } else {
+      patchesVersion = await _managerAPI.getLatestPatchesVersion() ?? '0.0.0';
+    }
     final String integrationsVersion =
         await _managerAPI.getLatestIntegrationsVersion() ?? '0.0.0';
     if (patchesVersion != '0.0.0' && integrationsVersion != '0.0.0') {
@@ -450,10 +455,16 @@ class HomeViewModel extends BaseViewModel {
   }
 
   Future<Map<String, dynamic>?> getLatestPatchesRelease() {
+    if (_managerAPI.isPreReleasesEnabled()) {
+      return _githubAPI.getLatestPreRelease(_managerAPI.defaultPatchesRepo);
+    }
     return _githubAPI.getLatestPatchesRelease(_managerAPI.defaultPatchesRepo);
   }
 
   Future<String?> getLatestPatchesReleaseTime() {
+    if (_managerAPI.isPreReleasesEnabled()) {
+      return _managerAPI.getLatestPatchesPreReleaseTime();
+    }
     return _managerAPI.getLatestPatchesReleaseTime();
   }
 
