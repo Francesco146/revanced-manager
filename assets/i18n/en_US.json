@@ -241,7 +241,10 @@
 
         "ripLibsLabel": "Remove unused library",
         "ripLibsHint": "Compile only arm64-v8a architecture",
-
+        
+        "preReleasesLabel": "Use pre-release patches",
+        "preReleasesHint": "Use patches available through beta releases",
+        
         "versionCompatibilityCheckLabel": "Version compatibility check",
         "versionCompatibilityCheckHint": "Restricts patches to supported app versions",
         "requireSuggestedAppVersionLabel": "Require suggested app version",
