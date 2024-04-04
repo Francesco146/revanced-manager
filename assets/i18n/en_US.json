@@ -254,6 +254,7 @@
         "aboutLabel": "About",
         "snackbarMessage": "Copied to clipboard",
         "restartAppForChanges": "Restart the app to apply changes",
+        "rateLimited": "Rate limited by GitHub API",
 
         "deleteTempDirLabel": "Delete temporary files",
         "deleteTempDirHint": "Delete unused temporary files",

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer';
 import 'dart:io';
 import 'package:device_apps/device_apps.dart';
 import 'package:device_info_plus/device_info_plus.dart';
@@ -151,6 +152,7 @@ class ManagerAPI {
     final List<Patch> patches = patchesJson.map((String patchJson) {
       return Patch.fromJson(jsonDecode(patchJson));
     }).toList();
+    log('getSavedPatches: $patches');
     return patches;
   }
 
@@ -355,6 +357,7 @@ class ManagerAPI {
 
   Future<List<Patch>> getPatches() async {
     if (patches.isNotEmpty) {
+      log('returning cached patches: $patches');
       return patches;
     }
     final File? patchBundleFile = await downloadPatches();
@@ -393,6 +396,7 @@ class ManagerAPI {
       final String repoName = getPatchesRepo();
       final String currentVersion = await getCurrentPatchesVersion();
       final String url = getPatchesDownloadURL();
+      log('getting this patches: $currentVersion ($repoName)');
       return await _githubAPI.getPatchesReleaseFile(
         '.jar',
         repoName,
@@ -412,6 +416,7 @@ class ManagerAPI {
       final String repoName = getIntegrationsRepo();
       final String currentVersion = await getCurrentIntegrationsVersion();
       final String url = getIntegrationsDownloadURL();
+      log('getting this integrations: $currentVersion ($repoName)');
       return await _githubAPI.getPatchesReleaseFile(
         '.apk',
         repoName,
@@ -436,7 +441,8 @@ class ManagerAPI {
   Future<String?> getLatestPatchesReleaseTime() async {
     final release = await _githubAPI.getLatestPatchesRelease(getPatchesRepo());
     if (release != null) {
-      final DateTime timestamp = DateTime.parse(release['created_at'] as String);
+      final DateTime timestamp =
+          DateTime.parse(release['created_at'] as String);
       return format(timestamp, locale: 'en_short');
     } else {
       return null;
@@ -444,9 +450,11 @@ class ManagerAPI {
   }
 
   Future<String?> getLatestManagerReleaseTime() async {
-    final release = await _githubAPI.getLatestManagerRelease(defaultManagerRepo);
+    final release =
+        await _githubAPI.getLatestManagerRelease(defaultManagerRepo);
     if (release != null) {
-      final DateTime timestamp = DateTime.parse(release['created_at'] as String);
+      final DateTime timestamp =
+          DateTime.parse(release['created_at'] as String);
       return format(timestamp, locale: 'en_short');
     } else {
       return null;
@@ -456,7 +464,8 @@ class ManagerAPI {
   Future<String?> getLatestPatchesPreReleaseTime() async {
     final release = await _githubAPI.getLatestPatchesRelease(getPatchesRepo());
     if (release != null) {
-      final DateTime timestamp = DateTime.parse(release['created_at'] as String);
+      final DateTime timestamp =
+          DateTime.parse(release['created_at'] as String);
       return format(timestamp, locale: 'en_short');
     } else {
       return null;

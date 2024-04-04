@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_i18n/widgets/I18nText.dart';
+import 'package:revanced_manager/app/app.locator.dart';
+import 'package:revanced_manager/services/toast.dart';
 import 'package:revanced_manager/ui/views/settings/settings_viewmodel.dart';
 
 class SPreReleases extends StatefulWidget {
@@ -12,6 +14,8 @@ class SPreReleases extends StatefulWidget {
 final _settingsViewModel = SettingsViewModel();
 
 class _SPreReleases extends State<SPreReleases> {
+  final Toast _toast = locator<Toast>();
+
   @override
   Widget build(BuildContext context) {
     return SwitchListTile(
@@ -32,6 +36,7 @@ class _SPreReleases extends State<SPreReleases> {
         setState(() {
           _settingsViewModel.showPreReleases(value);
         });
+        _toast.showBottom('settingsView.restartAppForChanges');
       },
     );
   }

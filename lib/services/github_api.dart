@@ -1,3 +1,4 @@
+import 'dart:developer';
 import 'dart:io';
 import 'package:collection/collection.dart';
 import 'package:dio/dio.dart';
@@ -6,6 +7,7 @@ import 'package:injectable/injectable.dart';
 import 'package:revanced_manager/app/app.locator.dart';
 import 'package:revanced_manager/services/download_manager.dart';
 import 'package:revanced_manager/services/manager_api.dart';
+import 'package:revanced_manager/services/toast.dart';
 
 @lazySingleton
 class GithubAPI {
@@ -24,28 +26,34 @@ class GithubAPI {
   Future<Map<String, dynamic>?> getLatestRelease(
     String repoName,
   ) async {
+    final Toast _toast = locator<Toast>();
+
     try {
-      //log('trying to get latest release ($repoName)');
+      log('trying to get latest release ($repoName)');
       final response = await _dio.get(
         '/repos/$repoName/releases/latest',
       );
       return response.data;
     } on Exception catch (e) {
       if (kDebugMode) {
+        log('possible rate limit ($repoName)');
+        log(e.toString());
         print(e);
       }
+      _toast.showBottom('settingsView.rateLimited');
       return null;
     }
   }
 
   Future<Map<String, dynamic>?> getLatestPreRelease(String repoName) async {
+    final Toast _toast = locator<Toast>();
     try {
-      //log('Trying to get the latest PRE-release ($repoName)');
+      log('Trying to get the latest PRE-release ($repoName)');
       final Response response = await _dio.get('/repos/$repoName/releases');
       final List<dynamic> releases = response.data;
 
       if (releases.isEmpty) {
-        //log('No releases found ($repoName), no absolute releases...');
+        log('No releases found ($repoName), no absolute releases...');
         throw Exception('No releases found ($repoName)');
       }
 
@@ -63,15 +71,17 @@ class GithubAPI {
       }
 
       if (latestPreRelease == null) {
-        //log('No PRE-release found ($repoName)');
+        log('No PRE-release found ($repoName)');
         throw Exception('No PRE-release found ($repoName)');
       }
 
       return latestPreRelease;
     } catch (e) {
       if (kDebugMode) {
+        log('possible rate limit ($repoName)');
         print(e);
       }
+      _toast.showBottom('settingsView.rateLimited');
       return null;
     }
   }
@@ -80,6 +90,7 @@ class GithubAPI {
     String repoName,
     String version,
   ) async {
+    Toast _toast = locator<Toast>();
     try {
       final response = await _dio.get(
         '/repos/$repoName/releases/tags/$version',
@@ -87,8 +98,10 @@ class GithubAPI {
       return response.data;
     } on Exception catch (e) {
       if (kDebugMode) {
+        log('possible rate limit ($repoName)');
         print(e);
       }
+      _toast.showBottom('settingsView.rateLimited');
       return null;
     }
   }
@@ -96,6 +109,7 @@ class GithubAPI {
   Future<Map<String, dynamic>?> getLatestPatchesRelease(
     String repoName,
   ) async {
+    Toast _toast = locator<Toast>();
     try {
       final response = await _dio.get(
         '/repos/$repoName/releases/latest',
@@ -103,8 +117,10 @@ class GithubAPI {
       return response.data;
     } on Exception catch (e) {
       if (kDebugMode) {
+        log('possible rate limit ($repoName)');
         print(e);
       }
+      _toast.showBottom('settingsView.rateLimited');
       return null;
     }
   }
@@ -112,6 +128,7 @@ class GithubAPI {
   Future<Map<String, dynamic>?> getLatestManagerRelease(
     String repoName,
   ) async {
+    Toast _toast = locator<Toast>();
     try {
       final response = await _dio.get(
         '/repos/$repoName/releases',
@@ -138,8 +155,10 @@ class GithubAPI {
       return releases;
     } on Exception catch (e) {
       if (kDebugMode) {
+        log('possible rate limit ($repoName)');
         print(e);
       }
+      _toast.showBottom('settingsView.rateLimited');
       return null;
     }
   }
@@ -169,6 +188,7 @@ class GithubAPI {
       }
     } on Exception catch (e) {
       if (kDebugMode) {
+        log('possible rate limit ($repoName)');
         print(e);
       }
     }
@@ -208,6 +228,7 @@ class GithubAPI {
       }
     } on Exception catch (e) {
       if (kDebugMode) {
+        log('possible rate limit ($repoName)');
         print(e);
       }
     }
