@@ -74,7 +74,20 @@ class InstallerViewModel extends BaseViewModel {
         screenshotDetected(context);
       }
     });
-    await WakelockPlus.enable();
+    /* MEMO:
+     * Don't know why this is causing the app to crash, but it is. I'm going to
+     * comment it out for now, but we should look into this later. This was 
+     * the error message:
+     * 
+     * Unhandled Exception: PlatformException(channel-error, Unable to establish connection on channel: "dev.flutter.pigeon.wakelock_plus_platform_interface.WakelockPlusApi.toggle"., null, null)
+     * 
+     * I suspect it has something to do with the version of WakelockPlus:
+     * https://github.com/creativecreatorormaybenot/wakelock/issues/123
+     * https://github.com/creativecreatorormaybenot/wakelock/issues/197
+     * https://github.com/creativecreatorormaybenot/wakelock/issues/179
+     * https://stackoverflow.com/questions/72880037/
+     */
+    //await WakelockPlus.enable(); //FIXME: This is causing the app to crash
     await handlePlatformChannelMethods();
     await runPatcher();
   }
