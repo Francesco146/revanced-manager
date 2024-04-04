@@ -185,7 +185,7 @@ class InstallerViewModel extends BaseViewModel {
           } // ignore
         }
       }
-      await WakelockPlus.disable();
+      //await WakelockPlus.disable(); //FIXME: This is causing the app to crash
     } on Exception catch (e) {
       if (kDebugMode) {
         print(e);
@@ -457,7 +457,7 @@ class InstallerViewModel extends BaseViewModel {
       isCanceled = true;
       update(0.5, 'Canceling...', 'Canceling patching process');
       await _patcherAPI.stopPatcher();
-      await WakelockPlus.disable();
+      //await WakelockPlus.disable(); //FIXME: This is causing the app to crash
       update(-100.0, 'Canceled...', 'Press back to exit');
     } on Exception catch (e) {
       if (kDebugMode) {
