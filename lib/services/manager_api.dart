@@ -357,7 +357,7 @@ class ManagerAPI {
 
   Future<List<Patch>> getPatches() async {
     if (patches.isNotEmpty) {
-      log('returning cached patches: $patches');
+      log('returning cached patches [getPatches()]');
       return patches;
     }
     final File? patchBundleFile = await downloadPatches();
@@ -432,6 +432,7 @@ class ManagerAPI {
   }
 
   Future<File?> downloadManager() async {
+    log('getting this manager: $defaultManagerRepo');
     return await _githubAPI.getLatestReleaseFile(
       '.apk',
       defaultManagerRepo,

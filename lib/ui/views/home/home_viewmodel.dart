@@ -116,6 +116,9 @@ class HomeViewModel extends BaseViewModel {
       currentVersion = 'v$currentVersion';
     }
 
+    return false;
+    // this is disabled for now...
+
     _latestManagerVersion =
         await _managerAPI.getLatestManagerVersion() ?? currentVersion;
 
@@ -126,6 +129,9 @@ class HomeViewModel extends BaseViewModel {
   }
 
   Future<bool> hasPatchesUpdates() async {
+    // return false;
+
+    // this is disabled for now...
     final String? latestVersion = await _managerAPI.getLatestPatchesVersion();
     final String currentVersion = await _managerAPI.getCurrentPatchesVersion();
     if (latestVersion != null) {

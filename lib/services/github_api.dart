@@ -29,7 +29,7 @@ class GithubAPI {
     final Toast _toast = locator<Toast>();
 
     try {
-      log('trying to get latest release ($repoName)');
+      log('[getLatestRelease()] Trying to get latest release ($repoName)');
       final response = await _dio.get(
         '/repos/$repoName/releases/latest',
       );
@@ -48,7 +48,7 @@ class GithubAPI {
   Future<Map<String, dynamic>?> getLatestPreRelease(String repoName) async {
     final Toast _toast = locator<Toast>();
     try {
-      log('Trying to get the latest PRE-release ($repoName)');
+      log('[getLatestPreRelease()] Trying to get the latest PRE-release ($repoName)');
       final Response response = await _dio.get('/repos/$repoName/releases');
       final List<dynamic> releases = response.data;
 
@@ -228,7 +228,6 @@ class GithubAPI {
       }
     } on Exception catch (e) {
       if (kDebugMode) {
-        log('possible rate limit ($repoName)');
         print(e);
       }
     }
