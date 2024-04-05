@@ -40,7 +40,7 @@ class GithubAPI {
         log(e.toString());
         print(e);
       }
-      _toast.showBottom('settingsView.rateLimited');
+      // _toast.showBottom('settingsView.rateLimited');
       return null;
     }
   }
@@ -81,7 +81,7 @@ class GithubAPI {
         log('possible rate limit ($repoName)');
         print(e);
       }
-      _toast.showBottom('settingsView.rateLimited');
+      // _toast.showBottom('settingsView.rateLimited');
       return null;
     }
   }
@@ -101,7 +101,7 @@ class GithubAPI {
         log('possible rate limit ($repoName)');
         print(e);
       }
-      _toast.showBottom('settingsView.rateLimited');
+      // _toast.showBottom('settingsView.rateLimited');
       return null;
     }
   }
@@ -120,7 +120,7 @@ class GithubAPI {
         log('possible rate limit ($repoName)');
         print(e);
       }
-      _toast.showBottom('settingsView.rateLimited');
+      // _toast.showBottom('settingsView.rateLimited');
       return null;
     }
   }
@@ -158,7 +158,7 @@ class GithubAPI {
         log('possible rate limit ($repoName)');
         print(e);
       }
-      _toast.showBottom('settingsView.rateLimited');
+      // _toast.showBottom('settingsView.rateLimited');
       return null;
     }
   }
