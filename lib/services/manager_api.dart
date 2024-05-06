@@ -1,21 +1,22 @@
 import 'dart:convert';
-import 'dart:developer';
 import 'dart:io';
 import 'package:device_apps/device_apps.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_i18n/widgets/I18nText.dart';
 import 'package:injectable/injectable.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:revanced_manager/app/app.locator.dart';
+import 'package:revanced_manager/gen/strings.g.dart';
 import 'package:revanced_manager/models/patch.dart';
 import 'package:revanced_manager/models/patched_application.dart';
 import 'package:revanced_manager/services/github_api.dart';
 import 'package:revanced_manager/services/patcher_api.dart';
 import 'package:revanced_manager/services/revanced_api.dart';
 import 'package:revanced_manager/services/root_api.dart';
+import 'package:revanced_manager/services/toast.dart';
+import 'package:revanced_manager/ui/widgets/shared/haptics/haptic_checkbox_list_tile.dart';
 import 'package:revanced_manager/utils/check_for_supported_patch.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timeago/timeago.dart';
@@ -24,6 +25,7 @@ import 'package:timeago/timeago.dart';
 class ManagerAPI {
   final RevancedAPI _revancedAPI = locator<RevancedAPI>();
   final GithubAPI _githubAPI = locator<GithubAPI>();
+  final Toast _toast = locator<Toast>();
   final RootAPI _rootAPI = RootAPI();
   final String patcherRepo = 'revanced-patcher';
   final String cliRepo = 'revanced-cli';
@@ -34,19 +36,20 @@ class ManagerAPI {
   Patch? selectedPatch;
   BuildContext? ctx;
   bool isRooted = false;
+  bool releaseBuild = false;
   bool suggestedAppVersionSelected = true;
   bool isDynamicThemeAvailable = false;
   String storedPatchesFile = '/selected-patches.json';
   String keystoreFile =
-      '/sdcard/Android/data/app.rvx.manager.flutter/files/revanced-manager.keystore';
+      '/sdcard/Android/data/app.revanced.manager.flutter/files/revanced-manager.keystore';
   String defaultKeystorePassword = 's3cur3p@ssw0rd';
   String defaultApiUrl = 'https://api.revanced.app/';
   String defaultRepoUrl = 'https://api.github.com';
   String defaultPatcherRepo = 'revanced/revanced-patcher';
-  String defaultPatchesRepo = 'inotia00/revanced-patches';
-  String defaultIntegrationsRepo = 'inotia00/revanced-integrations';
+  String defaultPatchesRepo = 'anddea/revanced-patches';
+  String defaultIntegrationsRepo = 'anddea/revanced-integrations';
   String defaultCliRepo = 'revanced/revanced-cli';
-  String defaultManagerRepo = 'inotia00/revanced-manager';
+  String defaultManagerRepo = 'revanced/revanced-manager';
   String? patchesVersion = '';
   String? integrationsVersion = '';
 
@@ -57,6 +60,32 @@ class ManagerAPI {
         (await getSdkVersion()) >= 31; // ANDROID_12_SDK_VERSION = 31
     storedPatchesFile =
         (await getApplicationDocumentsDirectory()).path + storedPatchesFile;
+    if (kReleaseMode) {
+      releaseBuild = !(await getCurrentManagerVersion()).contains('-dev');
+    }
+
+    // Migrate to new API URL if not done yet as the old one is sunset.
+    final bool hasMigratedToNewApi =
+        _prefs.getBool('migratedToNewApiUrl') ?? false;
+    if (!hasMigratedToNewApi) {
+      final String apiUrl = getApiUrl().toLowerCase();
+      if (apiUrl.contains('releases.revanced.app')) {
+        await setApiUrl(''); // Reset to default.
+        _prefs.setBool('migratedToNewApiUrl', true);
+      }
+    }
+
+    final bool hasMigratedToAlternativeSource =
+        _prefs.getBool('migratedToAlternativeSource') ?? false;
+    if (!hasMigratedToAlternativeSource) {
+      final String patchesRepo = getPatchesRepo();
+      final String integrationsRepo = getIntegrationsRepo();
+      final bool usingAlternativeSources =
+          patchesRepo.toLowerCase() != defaultPatchesRepo ||
+              integrationsRepo.toLowerCase() != defaultIntegrationsRepo;
+      _prefs.setBool('useAlternativeSources', usingAlternativeSources);
+      _prefs.setBool('migratedToAlternativeSource', true);
+    }
   }
 
   Future<int> getSdkVersion() async {
@@ -74,17 +103,11 @@ class ManagerAPI {
     }
     await _revancedAPI.clearAllCache();
     await _prefs.setString('apiUrl', url);
+    _toast.showBottom(t.settingsView.restartAppForChanges);
   }
 
   String getRepoUrl() {
-    return _prefs.getString('repoUrl') ?? defaultRepoUrl;
-  }
-
-  Future<void> setRepoUrl(String url) async {
-    if (url.isEmpty || url == ' ') {
-      url = defaultRepoUrl;
-    }
-    await _prefs.setString('repoUrl', url);
+    return defaultRepoUrl;
   }
 
   String getPatchesDownloadURL() {
@@ -106,12 +129,12 @@ class ManagerAPI {
     await _prefs.setString('patchesRepo', value);
   }
 
-  bool getPatchesConsent() {
-    return _prefs.getBool('patchesConsent') ?? false;
+  bool getDownloadConsent() {
+    return _prefs.getBool('downloadConsent') ?? false;
   }
 
-  Future<void> setPatchesConsent(bool consent) async {
-    await _prefs.setBool('patchesConsent', consent);
+  void setDownloadConsent(bool consent) {
+    _prefs.setBool('downloadConsent', consent);
   }
 
   bool isPatchesAutoUpdate() {
@@ -134,6 +157,14 @@ class ManagerAPI {
     _prefs.setBool('showPatchesChangeWarning', !value);
   }
 
+  bool showUpdateDialog() {
+    return _prefs.getBool('showUpdateDialog') ?? true;
+  }
+
+  void setShowUpdateDialog(bool value) {
+    _prefs.setBool('showUpdateDialog', value);
+  }
+
   bool isChangingToggleModified() {
     return _prefs.getBool('isChangingToggleModified') ?? false;
   }
@@ -142,8 +173,8 @@ class ManagerAPI {
     _prefs.setBool('isChangingToggleModified', value);
   }
 
-  Future<void> setPatchesAutoUpdate(bool value) async {
-    await _prefs.setBool('patchesAutoUpdate', value);
+  void setPatchesAutoUpdate(bool value) {
+    _prefs.setBool('patchesAutoUpdate', value);
   }
 
   List<Patch> getSavedPatches(String packageName) {
@@ -152,7 +183,6 @@ class ManagerAPI {
     final List<Patch> patches = patchesJson.map((String patchJson) {
       return Patch.fromJson(jsonDecode(patchJson));
     }).toList();
-    log('getSavedPatches: $patches');
     return patches;
   }
 
@@ -185,6 +215,15 @@ class ManagerAPI {
       return jsonEncode(patch.toJson());
     }).toList();
     await _prefs.setStringList('usedPatches-$packageName', patchesJson);
+  }
+
+  void useAlternativeSources(bool value) {
+    _prefs.setBool('useAlternativeSources', value);
+    _toast.showBottom(t.settingsView.restartAppForChanges);
+  }
+
+  bool isUsingAlternativeSources() {
+    return _prefs.getBool('useAlternativeSources') ?? false;
   }
 
   Option? getPatchOption(String packageName, String patchName, String key) {
@@ -285,6 +324,14 @@ class ManagerAPI {
     return _prefs.getString('keystorePassword') ?? defaultKeystorePassword;
   }
 
+  String getLocale() {
+    return _prefs.getString('locale') ?? 'en';
+  }
+
+  Future<void> setLocale(String value) async {
+    await _prefs.setString('locale', value);
+  }
+
   Future<void> deleteTempFolder() async {
     final Directory dir = Directory('/data/local/tmp/revanced-manager');
     if (await dir.exists()) {
@@ -357,7 +404,6 @@ class ManagerAPI {
 
   Future<List<Patch>> getPatches() async {
     if (patches.isNotEmpty) {
-      log('returning cached patches [getPatches()]');
       return patches;
     }
     final File? patchBundleFile = await downloadPatches();
@@ -393,10 +439,10 @@ class ManagerAPI {
 
   Future<File?> downloadPatches() async {
     try {
-      final String repoName = getPatchesRepo();
+      final String repoName =
+          !isUsingAlternativeSources() ? defaultPatchesRepo : getPatchesRepo();
       final String currentVersion = await getCurrentPatchesVersion();
       final String url = getPatchesDownloadURL();
-      log('getting this patches: $currentVersion ($repoName)');
       return await _githubAPI.getPatchesReleaseFile(
         '.jar',
         repoName,
@@ -413,10 +459,11 @@ class ManagerAPI {
 
   Future<File?> downloadIntegrations() async {
     try {
-      final String repoName = getIntegrationsRepo();
+      final String repoName = !isUsingAlternativeSources()
+          ? defaultIntegrationsRepo
+          : getIntegrationsRepo();
       final String currentVersion = await getCurrentIntegrationsVersion();
       final String url = getIntegrationsDownloadURL();
-      log('getting this integrations: $currentVersion ($repoName)');
       return await _githubAPI.getPatchesReleaseFile(
         '.apk',
         repoName,
@@ -432,33 +479,63 @@ class ManagerAPI {
   }
 
   Future<File?> downloadManager() async {
-    log('getting this manager: $defaultManagerRepo');
-    return await _githubAPI.getLatestReleaseFile(
+    return await _revancedAPI.getLatestReleaseFile(
       '.apk',
       defaultManagerRepo,
     );
   }
 
   Future<String?> getLatestPatchesReleaseTime() async {
-    final release = await _githubAPI.getLatestPatchesRelease(getPatchesRepo());
-    if (release != null) {
-      final DateTime timestamp =
-          DateTime.parse(release['created_at'] as String);
-      return format(timestamp, locale: 'en_short');
+    if (!isUsingAlternativeSources()) {
+      return await _revancedAPI.getLatestReleaseTime(
+        '.json',
+        defaultPatchesRepo,
+      );
     } else {
-      return null;
+      final release =
+          await _githubAPI.getLatestPatchesRelease(getPatchesRepo());
+      if (release != null) {
+        final DateTime timestamp =
+            DateTime.parse(release['created_at'] as String);
+        return format(timestamp, locale: 'en_short');
+      } else {
+        return null;
+      }
     }
   }
 
   Future<String?> getLatestManagerReleaseTime() async {
-    final release =
-        await _githubAPI.getLatestManagerRelease(defaultManagerRepo);
-    if (release != null) {
-      final DateTime timestamp =
-          DateTime.parse(release['created_at'] as String);
-      return format(timestamp, locale: 'en_short');
+    return await _revancedAPI.getLatestReleaseTime(
+      '.apk',
+      defaultManagerRepo,
+    );
+  }
+
+  Future<String?> getLatestManagerVersion() async {
+    return await _revancedAPI.getLatestReleaseVersion(
+      '.apk',
+      defaultManagerRepo,
+    );
+  }
+
+  Future<String?> getLatestIntegrationsVersion() async {
+    if (!isUsingAlternativeSources()) {
+      return await _revancedAPI.getLatestReleaseVersion(
+        '.apk',
+        defaultIntegrationsRepo,
+      );
     } else {
-      return null;
+      final release;
+      if (isPreReleasesEnabled()) {
+        release = await _githubAPI.getLatestPreRelease(getIntegrationsRepo());
+      } else {
+        release = await _githubAPI.getLatestRelease(getIntegrationsRepo());
+      }
+      if (release != null) {
+        return release['tag_name'];
+      } else {
+        return null;
+      }
     }
   }
 
@@ -468,29 +545,6 @@ class ManagerAPI {
       final DateTime timestamp =
           DateTime.parse(release['created_at'] as String);
       return format(timestamp, locale: 'en_short');
-    } else {
-      return null;
-    }
-  }
-
-  Future<String?> getLatestManagerVersion() async {
-    final release = await _githubAPI.getLatestRelease(defaultManagerRepo);
-    if (release != null) {
-      return release['tag_name'];
-    } else {
-      return null;
-    }
-  }
-
-  Future<String?> getLatestIntegrationsVersion() async {
-    final release;
-    if (isPreReleasesEnabled()) {
-      release = await _githubAPI.getLatestPreRelease(getIntegrationsRepo());
-    } else {
-      release = await _githubAPI.getLatestRelease(getIntegrationsRepo());
-    }
-    if (release != null) {
-      return release['tag_name'];
     } else {
       return null;
     }
@@ -511,22 +565,33 @@ class ManagerAPI {
   }
 
   Future<String?> getLatestPatchesVersion() async {
-    final release;
-    if (isPreReleasesEnabled()) {
-      release = await _githubAPI.getLatestPreRelease(getPatchesRepo());
+    if (!isUsingAlternativeSources()) {
+      return await _revancedAPI.getLatestReleaseVersion(
+        '.json',
+        defaultPatchesRepo,
+      );
     } else {
-      release = await _githubAPI.getLatestRelease(getPatchesRepo());
-    }
-    if (release != null) {
-      return release['tag_name'];
-    } else {
-      return null;
+      final release;
+      if (isPreReleasesEnabled()) {
+        release = await _githubAPI.getLatestPreRelease(getPatchesRepo());
+      } else {
+        release = await _githubAPI.getLatestRelease(getPatchesRepo());
+      }
+      if (release != null) {
+        return release['tag_name'];
+      } else {
+        return null;
+      }
     }
   }
 
   Future<String> getCurrentManagerVersion() async {
     final PackageInfo packageInfo = await PackageInfo.fromPlatform();
-    return packageInfo.version;
+    String version = packageInfo.version;
+    if (!version.startsWith('v')) {
+      version = 'v$version';
+    }
+    return version;
   }
 
   Future<String> getCurrentPatchesVersion() async {
@@ -614,10 +679,10 @@ class ManagerAPI {
     return showDialog(
       barrierDismissible: false,
       context: context,
-      builder: (context) => WillPopScope(
-        onWillPop: () async => false,
+      builder: (context) => PopScope(
+        canPop: false,
         child: AlertDialog(
-          title: I18nText('warning'),
+          title: Text(t.warning),
           content: ValueListenableBuilder(
             valueListenable: noShow,
             builder: (context, value, child) {
@@ -625,22 +690,19 @@ class ManagerAPI {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  I18nText(
-                    'patchItem.patchesChangeWarningDialogText',
-                    child: const Text(
-                      '',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
+                  Text(
+                    t.patchItem.patchesChangeWarningDialogText,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                   const SizedBox(height: 8),
-                  CheckboxListTile(
+                  HapticCheckboxListTile(
                     value: value,
                     contentPadding: EdgeInsets.zero,
-                    title: I18nText(
-                      'noShowAgain',
+                    title: Text(
+                      t.noShowAgain,
                     ),
                     onChanged: (selected) {
                       noShow.value = selected!;
@@ -656,7 +718,7 @@ class ManagerAPI {
                 setPatchesChangeWarning(noShow.value);
                 Navigator.of(context).pop();
               },
-              child: I18nText('okButton'),
+              child: Text(t.okButton),
             ),
           ],
         ),
@@ -664,7 +726,7 @@ class ManagerAPI {
     );
   }
 
-  Future<void> reAssessSavedApps() async {
+  Future<void> reAssessPatchedApps() async {
     final List<PatchedApplication> patchedApps = getPatchedApps();
 
     // Remove apps that are not installed anymore.
