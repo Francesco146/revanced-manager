@@ -81,42 +81,59 @@ class GithubAPI {
     }
   }
 
-  Future<Map<String, dynamic>?> getLatestManagerRelease(
-    String repoName,
-  ) async {
+  Future<String?> getManagerChangelogs() async {
     try {
       final response = await _dioGetSynchronously(
-        '/repos/$repoName/releases?per_page=10',
+        '/repos/${_managerAPI.defaultManagerRepo}/releases',
       );
-      final Map<String, dynamic> releases = response.data[0];
-      int updates = 0;
+      final buffer = StringBuffer();
       final String currentVersion =
           await _managerAPI.getCurrentManagerVersion();
-      while (response.data[updates]['tag_name'] != currentVersion) {
-        updates++;
-      }
-      for (int i = 1; i < updates; i++) {
-        if (response.data[i]['prerelease']) {
+      for (final release in response.data) {
+        if (release['tag_name'] == currentVersion) {
+          if (buffer.isEmpty) {
+            buffer.writeln(release['body']);
+          }
+          break;
+        }
+        if (release['prerelease']) {
           continue;
         }
-        releases.update(
-          'body',
-          (value) =>
-              value +
-              '\n' +
-              '# ' +
-              response.data[i]['tag_name'] +
-              '\n' +
-              response.data[i]['body'],
-        );
+        buffer.writeln('# ${release['tag_name']}');
+        buffer.writeln(release['body']);
       }
-      return releases;
+      return buffer.toString();
     } on Exception catch (e) {
       if (kDebugMode) {
         print(e);
       }
       return null;
     }
+  }
+
+  Future<File?> getLatestReleaseFile(
+    String extension,
+    String repoName,
+  ) async {
+    try {
+      final Map<String, dynamic>? release = await getLatestRelease(repoName);
+      if (release != null) {
+        final Map<String, dynamic>? asset =
+            (release['assets'] as List<dynamic>).firstWhereOrNull(
+          (asset) => (asset['name'] as String).endsWith(extension),
+        );
+        if (asset != null) {
+          return await _downloadManager.getSingleFile(
+            asset['browser_download_url'],
+          );
+        }
+      }
+    } on Exception catch (e) {
+      if (kDebugMode) {
+        print(e);
+      }
+    }
+    return null;
   }
 
   Future<File?> getReleaseFile(
